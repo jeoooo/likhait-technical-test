@@ -23,6 +23,32 @@ RSpec.describe "Api::Expenses", type: :request do
       expect(json.first["id"]).to eq(expense2.id)
       expect(json.last["id"]).to eq(expense1.id)
     end
+
+    context "when filtering by year and month" do
+      let!(:other_month_expense) do
+        other_date = Date.today.prev_month
+        Expense.create!(description: "Old lunch", amount: 20.00, category: food_category, date: other_date)
+      end
+
+      it "returns only expenses whose date falls in the given month" do
+        get "/api/expenses", params: { year: Date.today.year, month: Date.today.month }
+
+        json = JSON.parse(response.body)
+        ids = json.map { |e| e["id"] }
+        expect(ids).to include(expense1.id, expense2.id)
+        expect(ids).not_to include(other_month_expense.id)
+      end
+
+      it "filters by expense date, not created_at" do
+        other_month_expense.update_columns(created_at: Date.today)
+
+        get "/api/expenses", params: { year: Date.today.year, month: Date.today.month }
+
+        json = JSON.parse(response.body)
+        ids = json.map { |e| e["id"] }
+        expect(ids).not_to include(other_month_expense.id)
+      end
+    end
   end
 
   describe "POST /api/expenses" do
